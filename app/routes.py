@@ -105,3 +105,53 @@ def update_password(user_id):
     db.session.commit()
 
     return {"message": "Password updated"}
+
+
+@user_bp.route("/users/<int:target_user_id>", methods=["PUT"])
+@login_required
+def update_user(user_id, target_user_id):
+    current_user = User.query.get(user_id)
+    target_user = User.query.get(target_user_id)
+
+    if not target_user:
+        return {"error": "User not found"}, 404
+
+    if current_user.role != UserRole.ADMIN.value and user_id != target_user_id:
+        return {"error": "Permission denied"}, 403
+
+    data = request.get_json()
+
+    if "name" in data:
+        target_user.name = data["name"]
+
+    if "username" in data:
+        existing = User.query.filter_by(username=data["username"]).first()
+        if existing and existing.id != target_user_id:
+            return {"error": "Username already exists"}, 400
+        target_user.username = data["username"]
+
+    if "password" in data:
+        if len(data["password"]) < 8 or len(data["password"]) > 64:
+            return {"error": "Password too short"}, 400
+        target_user.password = UserService.hash_password(data["password"])
+
+    if "role" in data:
+        if current_user.role != UserRole.ADMIN.value:
+            return {"error": "Only admin can change roles"}, 403
+
+        if user_id == target_user_id:
+            return {"error": "You can't change your own role"}, 400
+
+        if data["role"] not in [r.value for r in UserRole]:
+            return {"error": "Invalid role"}, 400
+
+        target_user.role = data["role"]
+
+    db.session.commit()
+
+    return {
+        "id": target_user.id,
+        "name": target_user.name,
+        "username": target_user.username,
+        "role": target_user.role,
+    }
