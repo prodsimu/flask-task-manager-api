@@ -20,3 +20,18 @@ def register():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+@user_bp.route("/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json()
+
+        user = UserService.authenticate(
+            username=data["username"], password=data["password"]
+        )
+
+        return jsonify({"id": user.id, "username": user.username, "role": user.role})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 401
