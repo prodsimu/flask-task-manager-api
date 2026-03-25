@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 
+from .auth import generate_token
 from .services import UserService
 
 user_bp = Blueprint("users", __name__)
@@ -26,12 +27,20 @@ def register():
 def login():
     try:
         data = request.get_json()
-
         user = UserService.authenticate(
             username=data["username"], password=data["password"]
         )
 
-        return jsonify({"id": user.id, "username": user.username, "role": user.role})
+        token = generate_token(user.id)
+
+        return jsonify(
+            {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role,
+                "token": token,
+            }
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 401
