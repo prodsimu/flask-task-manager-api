@@ -69,3 +69,22 @@ def list_users(user_id):
             for u in users
         ]
     )
+
+
+# POST USERS
+
+
+@user_bp.route("/users", methods=["POST"])
+@login_required
+def create_user_admin(user_id):
+    current_user = User.query.get(user_id)
+
+    if current_user.role != UserRole.ADMIN.value:
+        return {"error": "Admin access required"}, 403
+
+    data = request.get_json()
+    user = UserService.create_user(
+        name=data["name"], username=data["username"], password=data["password"]
+    )
+
+    return jsonify({"id": user.id, "username": user.username, "role": user.role}), 201
