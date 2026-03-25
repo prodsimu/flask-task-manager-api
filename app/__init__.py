@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 
 from .database import db
@@ -9,6 +11,7 @@ def create_app():
 
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "supersecretkey123")
 
     db.init_app(app)
 
