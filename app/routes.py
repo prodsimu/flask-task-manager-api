@@ -88,3 +88,20 @@ def profile(user_id):
     return jsonify(
         {"id": user.id, "name": user.name, "username": user.username, "role": user.role}
     )
+
+
+@user_bp.route("/profile/password", methods=["PUT"])
+@login_required
+def update_password(user_id):
+    data = request.get_json()
+    new_password = data.get("password")
+
+    if not new_password or len(new_password) < 8:
+        return {"error": "Password too short"}, 400
+
+    user = User.query.get(user_id)
+    hashed = UserService.hash_password(new_password)
+    user.password = hashed
+    db.session.commit()
+
+    return {"message": "Password updated"}
