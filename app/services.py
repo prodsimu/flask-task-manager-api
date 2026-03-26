@@ -53,6 +53,34 @@ class UserService:
 
     # UPDATE
 
+    @staticmethod
+    def update(user_id, data):
+        user = User.query.get_or_404(user_id)
+
+        ALLOWED_FIELDS = {"name", "username", "password", "role"}
+
+        try:
+            if "username" in data:
+                existing_user = User.query.filter_by(username=data["username"]).first()
+                if existing_user and existing_user.id != user.id:
+                    raise ValueError("Username already in use")
+
+            for field in ALLOWED_FIELDS:
+                if field in data:
+                    value = data[field]
+
+                    if field == "password":
+                        value = UserService.hash_password(value)
+
+                    setattr(user, field, value)
+
+            db.session.commit()
+            return user
+
+        except Exception:
+            db.session.rollback()
+            raise
+
     # DELETE
 
     @staticmethod
