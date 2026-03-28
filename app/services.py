@@ -22,7 +22,6 @@ class UserService:
 
     @staticmethod
     def create_user(name: str, username: str, password: str):
-
         existing_user = User.query.filter_by(username=username).first()
 
         if existing_user:
@@ -55,23 +54,32 @@ class UserService:
 
     @staticmethod
     def update(user_id, data):
-        user = User.query.get_or_404(user_id)
+        user = db.session.get(User, user_id)
+
+        if not user:
+            raise ValueError("User not found.")
 
         ALLOWED_FIELDS = {"name", "username", "password", "role"}
 
-        try:
-            if "username" in data:
-                existing_user = User.query.filter_by(username=data["username"]).first()
-                if existing_user and existing_user.id != user.id:
-                    raise ValueError("Username already in use")
+        if "username" in data:
+            existing_user = User.query.filter_by(username=data["username"]).first()
+            if existing_user and existing_user.id != user.id:
+                raise ValueError("Username already in use.")
 
+        if "password" in data:
+            if not 8 <= len(data["password"]) <= 64:
+                raise ValueError("Password must be between 8 and 64 characters.")
+
+        if "role" in data:
+            if data["role"] not in [r.value for r in UserRole]:
+                raise ValueError("Invalid role.")
+
+        try:
             for field in ALLOWED_FIELDS:
                 if field in data:
                     value = data[field]
-
                     if field == "password":
                         value = UserService.hash_password(value)
-
                     setattr(user, field, value)
 
             db.session.commit()
@@ -85,8 +93,10 @@ class UserService:
 
     @staticmethod
     def delete(current_user_id, target_user_id):
+        user = db.session.get(User, target_user_id)
 
-        user = User.query.get_or_404(target_user_id)
+        if not user:
+            raise ValueError("User not found.")
 
         if current_user_id == user.id:
             raise PermissionError("You can't delete your own user.")
@@ -98,7 +108,6 @@ class UserService:
 
     @staticmethod
     def authenticate(username: str, password: str):
-
         user = User.query.filter_by(username=username).first()
 
         if not user:
