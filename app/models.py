@@ -8,6 +8,12 @@ class UserRole(str, Enum):
     USER = "user"
 
 
+class TaskStatus(str, Enum):
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
 class User(db.Model):
     __tablename__ = "users"
 
