@@ -108,3 +108,12 @@ class TaskService:
         db.session.commit()
 
         return task
+
+    # DELETE
+
+    @staticmethod
+    def delete_task(project_id: int, task_id: int, owner_id: int):
+        task = TaskService.get_task(project_id, task_id, owner_id)
+
+        db.session.delete(task)
+        db.session.commit()
