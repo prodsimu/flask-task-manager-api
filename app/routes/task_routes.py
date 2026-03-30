@@ -130,3 +130,21 @@ def update_task(user_id, project_id, task_id):
 
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
+
+
+@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>", methods=["DELETE"])
+@login_required
+def delete_task(user_id, project_id, task_id):
+    try:
+        TaskService.delete_task(
+            project_id=project_id,
+            task_id=task_id,
+            owner_id=user_id,
+        )
+        return jsonify({"message": "Task deleted"}), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
