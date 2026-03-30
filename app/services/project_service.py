@@ -34,6 +34,18 @@ class ProjectService:
     def list_projects(owner_id: int):
         return Project.query.filter_by(owner_id=owner_id).all()
 
+    @staticmethod
+    def get_project(project_id: int, owner_id: int):
+        project = db.session.get(Project, project_id)
+
+        if not project:
+            raise ValueError("Project not found.")
+
+        if project.owner_id != owner_id:
+            raise PermissionError("Access denied.")
+
+        return project
+
     # UPDATE
 
     # DELETE
