@@ -97,3 +97,36 @@ def get_task(user_id, project_id, task_id):
 
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
+
+
+@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>", methods=["PUT"])
+@login_required
+def update_task(user_id, project_id, task_id):
+    data = request.get_json()
+
+    try:
+        task = TaskService.update_task(
+            project_id=project_id,
+            task_id=task_id,
+            owner_id=user_id,
+            data=data,
+        )
+        return (
+            jsonify(
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "status": task.status,
+                    "priority": task.priority,
+                    "created_at": task.created_at.isoformat(),
+                }
+            ),
+            200,
+        )
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
