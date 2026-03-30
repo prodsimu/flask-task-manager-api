@@ -75,3 +75,33 @@ def get_project(user_id, project_id):
 
     except PermissionError as e:
         return jsonify({"error": str(e)}), 403
+
+
+@project_bp.route("/projects/<int:project_id>", methods=["PUT"])
+@login_required
+def update_project(user_id, project_id):
+    data = request.get_json()
+
+    try:
+        project = ProjectService.update_project(
+            project_id=project_id,
+            owner_id=user_id,
+            data=data,
+        )
+        return (
+            jsonify(
+                {
+                    "id": project.id,
+                    "title": project.title,
+                    "description": project.description,
+                    "created_at": project.created_at.isoformat(),
+                }
+            ),
+            200,
+        )
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 403
