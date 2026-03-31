@@ -34,10 +34,18 @@ class TaskService:
         if priority not in [p.value for p in TaskPriority]:
             raise ValueError("Invalid priority.")
 
+        last_task = (
+            Task.query.filter_by(project_id=project_id, status=TaskStatus.TODO.value)
+            .order_by(Task.position.desc())
+            .first()
+        )
+        position = (last_task.position + 1) if last_task else 0
+
         task = Task(
             title=title.strip(),
             description=description,
             priority=priority,
+            position=position,
             project_id=project_id,
         )
 
@@ -49,7 +57,9 @@ class TaskService:
     # READ
 
     @staticmethod
-    def list_tasks(project_id: int, owner_id: int):
+    def list_tasks(
+        project_id: int, owner_id: int, status: str = None, priority: str = None
+    ):
         project = db.session.get(Project, project_id)
 
         if not project:
@@ -58,7 +68,21 @@ class TaskService:
         if project.owner_id != owner_id:
             raise PermissionError("Access denied.")
 
-        return Task.query.filter_by(project_id=project_id).all()
+        if status and status not in [s.value for s in TaskStatus]:
+            raise ValueError("Invalid status.")
+
+        if priority and priority not in [p.value for p in TaskPriority]:
+            raise ValueError("Invalid priority.")
+
+        query = Task.query.filter_by(project_id=project_id)
+
+        if status:
+            query = query.filter_by(status=status)
+
+        if priority:
+            query = query.filter_by(priority=priority)
+
+        return query.order_by(Task.status, Task.position).all()
 
     @staticmethod
     def get_task(project_id: int, task_id: int, owner_id: int):
@@ -117,3 +141,35 @@ class TaskService:
 
         db.session.delete(task)
         db.session.commit()
+
+    # MOVE
+
+    @staticmethod
+    def move_task(
+        project_id: int, task_id: int, owner_id: int, new_status: str, new_position: int
+    ):
+        task = TaskService.get_task(project_id, task_id, owner_id)
+
+        if new_status not in [s.value for s in TaskStatus]:
+            raise ValueError("Invalid status.")
+
+        if new_position < 0:
+            raise ValueError("Position must be a positive number.")
+
+        column_tasks = (
+            Task.query.filter_by(project_id=project_id, status=new_status)
+            .filter(Task.id != task_id)
+            .order_by(Task.position)
+            .all()
+        )
+
+        column_tasks.insert(new_position, task)
+
+        for index, t in enumerate(column_tasks):
+            t.position = index
+
+        task.status = new_status
+
+        db.session.commit()
+
+        return task
