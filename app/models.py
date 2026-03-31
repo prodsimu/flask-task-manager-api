@@ -60,6 +60,7 @@ class Task(db.Model):
     priority = db.Column(
         db.String(10), nullable=False, default=TaskPriority.MEDIUM.value
     )
+    position = db.Column(db.Integer, nullable=False, default=0)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
