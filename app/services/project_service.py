@@ -1,8 +1,15 @@
 from app.database.database import db
-from app.models import Project
+from app.models import MemberRole, Project, ProjectMember
 
 
 class ProjectService:
+
+    @staticmethod
+    def _get_member(project_id: int, user_id: int):
+        return ProjectMember.query.filter_by(
+            project_id=project_id,
+            user_id=user_id,
+        ).first()
 
     # CREATE
 
