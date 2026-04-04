@@ -14,28 +14,37 @@ task_bp = Blueprint("tasks", __name__)
 def list_tasks(user_id, project_id):
     status = request.args.get("status")
     priority = request.args.get("priority")
+    search = request.args.get("search")
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
 
     try:
-        tasks = TaskService.list_tasks(
+        result = TaskService.list_tasks(
             project_id=project_id,
             user_id=user_id,
             status=status,
             priority=priority,
+            search=search,
+            page=page,
+            per_page=per_page,
         )
         return (
             jsonify(
-                [
-                    {
-                        "id": t.id,
-                        "title": t.title,
-                        "description": t.description,
-                        "status": t.status,
-                        "priority": t.priority,
-                        "position": t.position,
-                        "created_at": t.created_at.isoformat(),
-                    }
-                    for t in tasks
-                ]
+                {
+                    "data": [
+                        {
+                            "id": t.id,
+                            "title": t.title,
+                            "description": t.description,
+                            "status": t.status,
+                            "priority": t.priority,
+                            "position": t.position,
+                            "created_at": t.created_at.isoformat(),
+                        }
+                        for t in result["data"]
+                    ],
+                    "pagination": result["pagination"],
+                }
             ),
             200,
         )
