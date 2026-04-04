@@ -4,6 +4,7 @@ from app.models import (
     Project,
     ProjectMember,
     Task,
+    TaskHistory,
     TaskPriority,
     TaskStatus,
 )
@@ -35,6 +36,20 @@ class TaskService:
             raise PermissionError("Editor access required.")
 
         return project
+
+    @staticmethod
+    def _record_history(task_id: int, user_id: int, changes: dict):
+        for field, (old_value, new_value) in changes.items():
+            entry = TaskHistory(
+                task_id=task_id,
+                changed_by=user_id,
+                field=field,
+                old_value=str(old_value) if old_value is not None else None,
+                new_value=str(new_value) if new_value is not None else None,
+            )
+            db.session.add(entry)
+
+    # CREATE
 
     @staticmethod
     def create_task(
@@ -74,6 +89,18 @@ class TaskService:
         )
 
         db.session.add(task)
+        db.session.flush()
+
+        TaskService._record_history(
+            task.id,
+            user_id,
+            {
+                "title": (None, task.title),
+                "status": (None, task.status),
+                "priority": (None, task.priority),
+            },
+        )
+
         db.session.commit()
 
         return task
@@ -82,7 +109,13 @@ class TaskService:
 
     @staticmethod
     def list_tasks(
-        project_id: int, user_id: int, status: str = None, priority: str = None
+        project_id: int,
+        user_id: int,
+        status: str = None,
+        priority: str = None,
+        search: str = None,
+        page: int = 1,
+        per_page: int = 20,
     ):
         TaskService._check_access(project_id, user_id)
 
@@ -100,7 +133,22 @@ class TaskService:
         if priority:
             query = query.filter_by(priority=priority)
 
-        return query.order_by(Task.status, Task.position).all()
+        if search:
+            query = query.filter(Task.title.ilike(f"%{search}%"))
+
+        pagination = query.order_by(Task.status, Task.position).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return {
+            "data": pagination.items,
+            "pagination": {
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+                "total": pagination.total,
+                "pages": pagination.pages,
+            },
+        }
 
     @staticmethod
     def get_task(project_id: int, task_id: int, user_id: int):
@@ -113,6 +161,21 @@ class TaskService:
 
         return task
 
+    @staticmethod
+    def get_task_history(project_id: int, task_id: int, user_id: int):
+        TaskService._check_access(project_id, user_id)
+
+        task = db.session.get(Task, task_id)
+
+        if not task or task.project_id != project_id:
+            raise ValueError("Task not found.")
+
+        return (
+            TaskHistory.query.filter_by(task_id=task_id)
+            .order_by(TaskHistory.changed_at.desc())
+            .all()
+        )
+
     # UPDATE
 
     @staticmethod
@@ -124,27 +187,36 @@ class TaskService:
         if not task or task.project_id != project_id:
             raise ValueError("Task not found.")
 
+        changes = {}
+
         if "title" in data:
             if not data["title"] or len(data["title"].strip()) == 0:
                 raise ValueError("Title is required.")
             if len(data["title"]) > 100:
                 raise ValueError("Title must be at most 100 characters.")
+            changes["title"] = (task.title, data["title"].strip())
             task.title = data["title"].strip()
 
         if "description" in data:
             if data["description"] and len(data["description"]) > 255:
                 raise ValueError("Description must be at most 255 characters.")
+            changes["description"] = (task.description, data["description"])
             task.description = data["description"]
 
         if "status" in data:
             if data["status"] not in [s.value for s in TaskStatus]:
                 raise ValueError("Invalid status.")
+            changes["status"] = (task.status, data["status"])
             task.status = data["status"]
 
         if "priority" in data:
             if data["priority"] not in [p.value for p in TaskPriority]:
                 raise ValueError("Invalid priority.")
+            changes["priority"] = (task.priority, data["priority"])
             task.priority = data["priority"]
+
+        if changes:
+            TaskService._record_history(task.id, user_id, changes)
 
         db.session.commit()
 
@@ -169,6 +241,14 @@ class TaskService:
         if new_position < 0:
             raise ValueError("Position must be a positive number.")
 
+        changes = {}
+
+        if task.status != new_status:
+            changes["status"] = (task.status, new_status)
+
+        if task.position != new_position:
+            changes["position"] = (task.position, new_position)
+
         column_tasks = (
             Task.query.filter_by(project_id=project_id, status=new_status)
             .filter(Task.id != task_id)
@@ -182,6 +262,10 @@ class TaskService:
             t.position = index
 
         task.status = new_status
+
+        if changes:
+            TaskService._record_history(task.id, user_id, changes)
+
         db.session.commit()
 
         return task
