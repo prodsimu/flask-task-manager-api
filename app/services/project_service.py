@@ -38,13 +38,34 @@ class ProjectService:
     # READ
 
     @staticmethod
-    def list_projects(user_id: int):
-        owned = Project.query.filter_by(owner_id=user_id).all()
+    def list_projects(
+        user_id: int, page: int = 1, per_page: int = 10, search: str = None
+    ):
+        owned_ids = [p.id for p in Project.query.filter_by(owner_id=user_id).all()]
+        member_ids = [
+            m.project_id for m in ProjectMember.query.filter_by(user_id=user_id).all()
+        ]
 
-        memberships = ProjectMember.query.filter_by(user_id=user_id).all()
-        member_of = [m.project for m in memberships]
+        all_ids = list(set(owned_ids + member_ids))
 
-        return owned + member_of
+        query = Project.query.filter(Project.id.in_(all_ids))
+
+        if search:
+            query = query.filter(Project.title.ilike(f"%{search}%"))
+
+        pagination = query.order_by(Project.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+
+        return {
+            "data": pagination.items,
+            "pagination": {
+                "page": pagination.page,
+                "per_page": pagination.per_page,
+                "total": pagination.total,
+                "pages": pagination.pages,
+            },
+        }
 
     @staticmethod
     def get_project(project_id: int, user_id: int):
