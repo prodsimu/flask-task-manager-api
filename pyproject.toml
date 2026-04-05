@@ -1,9 +1,9 @@
 [project]
-name = "user-manager"
+name = "flask-task-manager-api"
 version = "0.1.0"
-description = "User manager built with Flask and SQLAlchemy"
+description = "Task manager API built with Flask"
 authors = [
-    { name = "Seu Nome" }
+    { name = "prodsimu" }
 ]
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,14 +14,16 @@ dependencies = [
     "click==8.3.1",
     "Flask==3.1.3",
     "Flask-SQLAlchemy==3.1.1",
+    "flask-openapi3==4.1.0",
     "greenlet==3.3.2",
     "itsdangerous==2.2.0",
     "Jinja2==3.1.6",
     "MarkupSafe==3.0.3",
+    "pydantic==2.11.7",
     "SQLAlchemy==2.0.48",
     "typing_extensions==4.15.0",
     "Werkzeug==3.1.6",
-    "pyjwt-2.12.1"
+    "PyJWT==2.12.1"
 ]
 
 [build-system]
