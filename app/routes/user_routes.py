@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from flask_openapi3 import APIBlueprint
 
 from app.auth import (
     admin_required,
@@ -8,15 +9,24 @@ from app.auth import (
 )
 from app.database.database import db
 from app.models import User
+from app.schemas import (
+    LoginBody,
+    LoginResponse,
+    RegisterBody,
+    UpdatePasswordBody,
+    UpdateUserBody,
+    UserListResponse,
+    UserResponse,
+)
 from app.services.user_service import UserService
 
-user_bp = Blueprint("users", __name__)
+user_bp = APIBlueprint("users", __name__)
 
 
 # GET
 
 
-@user_bp.route("/users", methods=["GET"])
+@user_bp.get("/users", responses={"200": UserListResponse})
 @admin_required
 def list_users(user_id):
     page = request.args.get("page", 1, type=int)
@@ -38,7 +48,7 @@ def list_users(user_id):
     )
 
 
-@user_bp.route("/profile", methods=["GET"])
+@user_bp.get("/profile", responses={"200": UserResponse})
 @login_required
 def profile(user_id):
     user = db.session.get(User, user_id)
@@ -50,14 +60,13 @@ def profile(user_id):
 # POST
 
 
-@user_bp.route("/register", methods=["POST"])
-def register():
+@user_bp.post("/register", responses={"201": UserResponse})
+def register(body: RegisterBody):
     try:
-        data = request.get_json()
         user = UserService.create_user(
-            name=data["name"],
-            username=data["username"],
-            password=data["password"],
+            name=body.name,
+            username=body.username,
+            password=body.password,
         )
         return jsonify({"id": user.id, "username": user.username}), 201
 
@@ -65,12 +74,12 @@ def register():
         return jsonify({"error": str(e)}), 400
 
 
-@user_bp.route("/login", methods=["POST"])
-def login():
+@user_bp.post("/login", responses={"200": LoginResponse})
+def login(body: LoginBody):
     try:
-        data = request.get_json()
         user = UserService.authenticate(
-            username=data["username"], password=data["password"]
+            username=body.username,
+            password=body.password,
         )
         token = generate_token(user.id)
         return jsonify(
@@ -86,15 +95,14 @@ def login():
         return jsonify({"error": str(e)}), 401
 
 
-@user_bp.route("/users", methods=["POST"])
+@user_bp.post("/users", responses={"201": UserResponse})
 @admin_required
-def create_user_admin(user_id):
-    data = request.get_json()
+def create_user_admin(user_id, body: RegisterBody):
     try:
         user = UserService.create_user(
-            name=data["name"],
-            username=data["username"],
-            password=data["password"],
+            name=body.name,
+            username=body.username,
+            password=body.password,
         )
         return (
             jsonify({"id": user.id, "username": user.username, "role": user.role}),
@@ -108,26 +116,21 @@ def create_user_admin(user_id):
 # PUT
 
 
-@user_bp.route("/profile/password", methods=["PUT"])
+@user_bp.put("/profile/password")
 @login_required
-def update_password(user_id):
-    data = request.get_json()
-
-    if not data.get("password"):
-        return {"error": "Password is required"}, 400
-
+def update_password(user_id, body: UpdatePasswordBody):
     try:
-        UserService.update(user_id, {"password": data["password"]})
+        UserService.update(user_id, {"password": body.password})
         return {"message": "Password updated"}
 
     except ValueError as e:
         return {"error": str(e)}, 400
 
 
-@user_bp.route("/users/<int:target_user_id>", methods=["PUT"])
+@user_bp.put("/users/<int:target_user_id>", responses={"200": UserResponse})
 @self_or_admin_required
-def update_user(user_id, target_user_id):
-    data = request.get_json()
+def update_user(user_id, target_user_id, body: UpdateUserBody):
+    data = body.model_dump(exclude_none=True)
 
     if "role" in data and user_id == target_user_id:
         return {"error": "You can't change your own role"}, 403
@@ -148,7 +151,7 @@ def update_user(user_id, target_user_id):
 # DELETE
 
 
-@user_bp.route("/users/<int:target_user_id>", methods=["DELETE"])
+@user_bp.delete("/users/<int:target_user_id>")
 @admin_required
 def delete_user(user_id, target_user_id):
     try:
