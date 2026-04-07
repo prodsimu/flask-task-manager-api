@@ -1,15 +1,24 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify, request
+from flask_openapi3 import APIBlueprint
 
 from app.auth import login_required
+from app.schemas import (
+    CreateTaskBody,
+    MoveTaskBody,
+    TaskHistoryResponse,
+    TaskListResponse,
+    TaskResponse,
+    UpdateTaskBody,
+)
 from app.services.task_service import TaskService
 
-task_bp = Blueprint("tasks", __name__)
+task_bp = APIBlueprint("tasks", __name__)
 
 
 # GET
 
 
-@task_bp.route("/projects/<int:project_id>/tasks", methods=["GET"])
+@task_bp.get("/projects/<int:project_id>/tasks", responses={"200": TaskListResponse})
 @login_required
 def list_tasks(user_id, project_id):
     status = request.args.get("status")
@@ -56,7 +65,9 @@ def list_tasks(user_id, project_id):
         return jsonify({"error": str(e)}), 403
 
 
-@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>", methods=["GET"])
+@task_bp.get(
+    "/projects/<int:project_id>/tasks/<int:task_id>", responses={"200": TaskResponse}
+)
 @login_required
 def get_task(user_id, project_id, task_id):
     try:
@@ -87,8 +98,9 @@ def get_task(user_id, project_id, task_id):
         return jsonify({"error": str(e)}), 403
 
 
-@task_bp.route(
-    "/projects/<int:project_id>/tasks/<int:task_id>/history", methods=["GET"]
+@task_bp.get(
+    "/projects/<int:project_id>/tasks/<int:task_id>/history",
+    responses={"200": TaskHistoryResponse},
 )
 @login_required
 def get_task_history(user_id, project_id, task_id):
@@ -125,18 +137,16 @@ def get_task_history(user_id, project_id, task_id):
 # POST
 
 
-@task_bp.route("/projects/<int:project_id>/tasks", methods=["POST"])
+@task_bp.post("/projects/<int:project_id>/tasks", responses={"201": TaskResponse})
 @login_required
-def create_task(user_id, project_id):
-    data = request.get_json()
-
+def create_task(user_id, project_id, body: CreateTaskBody):
     try:
         task = TaskService.create_task(
             project_id=project_id,
             user_id=user_id,
-            title=data.get("title"),
-            description=data.get("description"),
-            priority=data.get("priority", "medium"),
+            title=body.title,
+            description=body.description,
+            priority=body.priority,
         )
         return (
             jsonify(
@@ -163,10 +173,13 @@ def create_task(user_id, project_id):
 # PUT
 
 
-@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>", methods=["PUT"])
+@task_bp.put(
+    "/projects/<int:project_id>/tasks/<int:task_id>",
+    responses={"200": TaskResponse},
+)
 @login_required
-def update_task(user_id, project_id, task_id):
-    data = request.get_json()
+def update_task(user_id, project_id, task_id, body: UpdateTaskBody):
+    data = body.model_dump(exclude_none=True)
 
     try:
         task = TaskService.update_task(
@@ -200,18 +213,19 @@ def update_task(user_id, project_id, task_id):
 # PATCH
 
 
-@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>/move", methods=["PATCH"])
+@task_bp.patch(
+    "/projects/<int:project_id>/tasks/<int:task_id>/move",
+    responses={"200": TaskResponse},
+)
 @login_required
-def move_task(user_id, project_id, task_id):
-    data = request.get_json()
-
+def move_task(user_id, project_id, task_id, body: MoveTaskBody):
     try:
         task = TaskService.move_task(
             project_id=project_id,
             task_id=task_id,
             user_id=user_id,
-            new_status=data.get("status"),
-            new_position=data.get("position", 0),
+            new_status=body.status,
+            new_position=body.position,
         )
         return (
             jsonify(
@@ -238,7 +252,7 @@ def move_task(user_id, project_id, task_id):
 # DELETE
 
 
-@task_bp.route("/projects/<int:project_id>/tasks/<int:task_id>", methods=["DELETE"])
+@task_bp.delete("/projects/<int:project_id>/tasks/<int:task_id>")
 @login_required
 def delete_task(user_id, project_id, task_id):
     try:
