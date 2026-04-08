@@ -1,15 +1,24 @@
-from flask import Blueprint, jsonify, request
+from flask import jsonify
+from flask_openapi3 import APIBlueprint
 
 from app.auth import login_required
+from app.schemas import (
+    AddMemberBody,
+    MemberResponse,
+    UpdateMemberRoleBody,
+)
 from app.services.member_service import MemberService
 
-member_bp = Blueprint("members", __name__)
+member_bp = APIBlueprint("members", __name__)
 
 
 # GET
 
 
-@member_bp.route("/projects/<int:project_id>/members", methods=["GET"])
+@member_bp.get(
+    "/projects/<int:project_id>/members",
+    responses={"200": MemberResponse},
+)
 @login_required
 def list_members(user_id, project_id):
     try:
@@ -43,17 +52,18 @@ def list_members(user_id, project_id):
 # POST
 
 
-@member_bp.route("/projects/<int:project_id>/members", methods=["POST"])
+@member_bp.post(
+    "/projects/<int:project_id>/members",
+    responses={"201": MemberResponse},
+)
 @login_required
-def add_member(user_id, project_id):
-    data = request.get_json()
-
+def add_member(user_id, project_id, body: AddMemberBody):
     try:
         member = MemberService.add_member(
             project_id=project_id,
             owner_id=user_id,
-            username=data.get("username"),
-            role=data.get("role", "viewer"),
+            username=body.username,
+            role=body.role,
         )
         return (
             jsonify(
@@ -78,19 +88,18 @@ def add_member(user_id, project_id):
 # PUT
 
 
-@member_bp.route(
-    "/projects/<int:project_id>/members/<int:target_user_id>", methods=["PUT"]
+@member_bp.put(
+    "/projects/<int:project_id>/members/<int:target_user_id>",
+    responses={"200": MemberResponse},
 )
 @login_required
-def update_member_role(user_id, project_id, target_user_id):
-    data = request.get_json()
-
+def update_member_role(user_id, project_id, target_user_id, body: UpdateMemberRoleBody):
     try:
         member = MemberService.update_member_role(
             project_id=project_id,
             owner_id=user_id,
             target_user_id=target_user_id,
-            role=data.get("role"),
+            role=body.role,
         )
         return (
             jsonify(
@@ -115,9 +124,7 @@ def update_member_role(user_id, project_id, target_user_id):
 # DELETE
 
 
-@member_bp.route(
-    "/projects/<int:project_id>/members/<int:target_user_id>", methods=["DELETE"]
-)
+@member_bp.delete("/projects/<int:project_id>/members/<int:target_user_id>")
 @login_required
 def remove_member(user_id, project_id, target_user_id):
     try:
